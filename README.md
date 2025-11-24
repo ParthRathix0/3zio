@@ -1,7 +1,7 @@
 # EZIO
 
 <p>
-  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-blue.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-MVP-purple">
 </p>
 
