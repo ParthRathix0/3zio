@@ -2,13 +2,16 @@
 
 <p>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Status" src="https://img.shields.io/badge/status-Research%2FPOC-purple">
+  <img alt="Status" src="https://img.shields.io/badge/status-MVP-purple">
 </p>
 
-Private, **unlinkable** fund transfers powered by **zero-knowledge proofs**. 3zio enables confidential payments where the transferred amount and sender–receiver linkage remain hidden, while correctness and one‑time spend are enforced on-chain.
+Privacy without Compliance is banned, Compliance without privacy is pointless.
+
+
+Private fund transfers powered by **zero-knowledge proofs**. Enables confidential payments where the transferred amount and sender–receiver linkage remain hidden, while correctness and one‑time spend are enforced on-chain.
 
 Users maintain two balance types:
-- **Public Balance:** Visible on-chain (like normal ERC20)
+- **Public Balance:** Visible on-chain
 - **Private Balance:** Hidden via Poseidon hash commitments
 
 
@@ -17,13 +20,19 @@ Users maintain two balance types:
   <img src="./assets/frontend_2.jpg" alt="App screenshot 2" style="width:48%;max-width:450px;height:auto;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
 </div>
 
-## Why 3zio ?
-- Built on a modified version of EIP‑7503 (zk wormhole) flow
+## Features
+- Built on a modified version of EIP‑7503 flow
 - No sender/receiver linkage is preserved
 - No linkability through IP or timings
 - Transferred amount remains private
 - Nullifier prevents double spends
 
+## Why EZIO
+- Previous privacy enhancing protocol were either completely untrackable or a little to public but, loki provides a perfect balance between enhanced privacy and governmental control which none could achieve yet
+- Enhances the privacy of users by highly increasing the computation which most people can't do
+- Government if wants can track a particular address and its transactions by performing high computations and thus retain the control which will avoid us from getting banned
+
+  
 ## How it works
 
 ![Core protocol](./assets/protocol.jpg)

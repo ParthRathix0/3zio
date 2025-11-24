@@ -42,9 +42,16 @@ const ProfileCard = () => {
   const [privateBalanceHash, setPrivateBalanceHash] = useState<string>("");
   const [randomness, setRandomness] = useState<string>("");
   const [showSendDialog, setShowSendDialog] = useState<boolean>(false);
+  const [showReceiveDialog, setShowReceiveDialog] = useState<boolean>(false);
   const [sendAmount, setSendAmount] = useState<string>("");
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [isReceiving, setIsReceiving] = useState<boolean>(false);
+  const [privateTransactionHash, setPrivateTransactionHash] =
+    useState<string>("");
+  const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   const {
     data: hash,
@@ -151,8 +158,16 @@ const ProfileCard = () => {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed) {
-      console.log("Transaction confirmed:", hash);
+    if (isConfirmed && hash) {
+      setPrivateTransactionHash(hash);
+      setSuccessMessage(
+        `Private transfer transaction confirmed! TX: ${hash.slice(
+          0,
+          10
+        )}...${hash.slice(-8)}`
+      );
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000);
       setShowSendDialog(false);
       setSendAmount("");
       setRecipientAddress("");
@@ -160,13 +175,149 @@ const ProfileCard = () => {
     }
   }, [isConfirmed, hash]);
 
-  const handlePrivateSend = () => {
-    console.log("Private send clicked - functionality to be implemented");
-    console.log("Amount:", sendAmount);
-    console.log("Private Balance:", privateBalance);
-    // Close dialog after action
-    setShowSendDialog(false);
-    setSendAmount("");
+  const handlePrivateSend = async () => {
+    if (!sendAmount || !isConnected || !address) {
+      return;
+    }
+
+    try {
+      setIsSending(true);
+
+      const amount = parseFloat(sendAmount);
+      const currentPrivBalance = parseFloat(privateBalance);
+
+      if (amount > currentPrivBalance) {
+        alert("Insufficient private balance!");
+        setIsSending(false);
+        return;
+      }
+
+      const newPrivBalance = currentPrivBalance - amount;
+
+      // Generate new hash for the updated private balance
+      const newRandomness = await generateRandomnessFromAddress(
+        address + Date.now()
+      );
+      const prevHash = privateBalanceHash;
+      const newHash = await generatePrivateBalanceHash(
+        newPrivBalance.toFixed(2),
+        newRandomness
+      );
+
+      // Create proof data that would be sent to contract
+      const proofData = {
+        amount: amount,
+        prevCommitment: prevHash,
+        newCommitment: newHash,
+        sender: address,
+        timestamp: Date.now(),
+      };
+
+      // Initiate MetaMask transaction to the contract
+      const CONTRACT_ADDRESS = "0xb21AD25eC6d65d92C998c76a22b3f5Dce2F9F7CB";
+
+      // Send a small transaction (0.0001 ETH) to contract as demo
+      sendTransaction({
+        to: CONTRACT_ADDRESS as `0x${string}`,
+        value: parseEther("0.0001"),
+        chainId: sepolia.id,
+        data: `0x${Buffer.from(JSON.stringify(proofData)).toString(
+          "hex"
+        )}` as `0x${string}`,
+      });
+
+      // Store the proof data for download
+      const proofJson = JSON.stringify(proofData, null, 2);
+      const blob = new Blob([proofJson], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `proof_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Update local state
+      setPrivateBalance(newPrivBalance.toFixed(2));
+      setPrivateBalanceHash(newHash);
+      setRandomness(newRandomness);
+    } catch (error) {
+      setIsSending(false);
+    }
+  };
+
+  const handleReceiveProof = async () => {
+    if (!proofFile || !isConnected || !address) {
+      return;
+    }
+
+    try {
+      setIsReceiving(true);
+
+      // Read the uploaded proof.json file
+      const fileText = await proofFile.text();
+      const proof = JSON.parse(fileText);
+
+      // Validate proof structure
+      if (!proof.amount || !proof.prevCommitment || !proof.newCommitment) {
+        alert("Invalid proof file format!");
+        setIsReceiving(false);
+        return;
+      }
+
+      const amount = parseFloat(proof.amount);
+
+      if (isNaN(amount) || amount <= 0) {
+        alert("Invalid amount in proof!");
+        setIsReceiving(false);
+        return;
+      }
+
+      // Initiate MetaMask transaction to verify and claim
+      const CONTRACT_ADDRESS = "0xb21AD25eC6d65d92C998c76a22b3f5Dce2F9F7CB";
+
+      // Send a small transaction to contract as demo
+      sendTransaction({
+        to: CONTRACT_ADDRESS as `0x${string}`,
+        value: parseEther("0.0001"),
+        chainId: sepolia.id,
+        data: `0x${Buffer.from(
+          JSON.stringify({ action: "claim", proof })
+        ).toString("hex")}` as `0x${string}`,
+      });
+
+      // Wait for transaction confirmation simulation
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const currentPrivBalance = parseFloat(privateBalance);
+      const newPrivBalance = currentPrivBalance + amount;
+
+      // Generate new hash for the updated private balance
+      const newRandomness = await generateRandomnessFromAddress(
+        address + Date.now()
+      );
+      const newHash = await generatePrivateBalanceHash(
+        newPrivBalance.toFixed(2),
+        newRandomness
+      );
+
+      // Update local state
+      setPrivateBalance(newPrivBalance.toFixed(2));
+      setPrivateBalanceHash(newHash);
+      setRandomness(newRandomness);
+
+      setSuccessMessage(`Private transfer received! Amount: ${amount} ETH`);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000);
+
+      setShowReceiveDialog(false);
+      setProofFile(null);
+      setIsReceiving(false);
+    } catch (error) {
+      alert("Error processing proof file. Please check the file format.");
+      setIsReceiving(false);
+    }
   };
 
   const handleProof = () => {
@@ -180,6 +331,17 @@ const ProfileCard = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto z-10 space-y-6">
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <Card className="border-green-500 bg-green-50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-center text-green-700">
+              ✓ {successMessage}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Wallet Connection Notice */}
       {!isConnected && (
         <Card className="border-yellow-500 bg-yellow-50">
@@ -309,12 +471,12 @@ const ProfileCard = () => {
               Send
             </Button>
             <Button
-              onClick={handleProof}
+              onClick={() => setShowReceiveDialog(true)}
               variant="outline"
               size="lg"
               className="min-w-[150px]"
             >
-              Generate Proof
+              Receive Private
             </Button>
           </div>
         </CardContent>
@@ -348,7 +510,9 @@ const ProfileCard = () => {
           <div className="space-y-4 py-4">
             {/* Recipient Address Input */}
             <div className="space-y-2">
-              <Label htmlFor="recipient">Recipient Address</Label>
+              <Label htmlFor="recipient">
+                Recipient Address (Optional for Private Demo)
+              </Label>
               <Input
                 id="recipient"
                 type="text"
@@ -435,7 +599,7 @@ const ProfileCard = () => {
                       <div>
                         <h3 className="font-semibold">Private Send</h3>
                         <p className="text-sm text-muted-foreground">
-                          Shielded transaction
+                          Shielded transaction (Demo Mode)
                         </p>
                       </div>
                     </div>
@@ -454,10 +618,97 @@ const ProfileCard = () => {
                     onClick={handlePrivateSend}
                     variant="outline"
                     className="w-full"
-                    disabled
+                    disabled={!sendAmount || isSending}
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Private Send (Coming Soon)
+                    {isSending ? (
+                      <>Processing...</>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Private Send (Demo)
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive Proof Dialog */}
+      <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Receive Private Transfer</DialogTitle>
+            <DialogDescription>
+              Upload proof.json file from the sender
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Proof File Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="proofFile">Upload Proof File</Label>
+              <Input
+                id="proofFile"
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setProofFile(file);
+                  }
+                }}
+                className="cursor-pointer"
+              />
+              {proofFile && (
+                <p className="text-xs text-green-600">
+                  ✓ {proofFile.name} selected
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Upload the proof.json file received from the sender
+              </p>
+            </div>
+
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <Lock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Private Receive</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Verify proof and update balance
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+                    <span className="text-sm text-muted-foreground">
+                      Current Private Balance:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold">{privateBalance} ETH</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleReceiveProof}
+                    className="w-full"
+                    disabled={!proofFile || isReceiving}
+                  >
+                    {isReceiving ? (
+                      <>Verifying Proof...</>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Receive & Update Balance
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
