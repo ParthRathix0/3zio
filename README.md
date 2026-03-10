@@ -204,4 +204,4 @@ Issues and PRs are welcome. If you’re proposing a protocol change, please incl
 
 **Last Updated:** October 26, 2025  
 **Version:** 2.0-FINAL  
-**Repository:** https://github.com/IMPERIAL-X7/3zio
+**Repository:** https://github.com/ParthRathix0/3zio
